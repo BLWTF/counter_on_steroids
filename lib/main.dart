@@ -170,7 +170,22 @@ class _ActionButton extends StatefulWidget {
 
 class __ActionButtonState extends State<_ActionButton> {
   Stopwatch stopwatch = Stopwatch();
-  Duration durationTillAction = const Duration(milliseconds: 100);
+  final List<Duration> durationTillActionList = const [
+    Duration(milliseconds: 100),
+    Duration(milliseconds: 75),
+    Duration(milliseconds: 50),
+    Duration(milliseconds: 25),
+    Duration(milliseconds: 1),
+    Duration(milliseconds: 25),
+    Duration(milliseconds: 50),
+    Duration(milliseconds: 75),
+    Duration(microseconds: 100),
+    Duration(microseconds: 75),
+    Duration(microseconds: 50),
+    Duration(microseconds: 25),
+    Duration(microseconds: 1),
+  ];
+  int durationTillActionListIndex = 0;
 
   @override
   Widget build(BuildContext context) {
@@ -182,15 +197,27 @@ class __ActionButtonState extends State<_ActionButton> {
         stopwatch.start();
       },
       onLongPressEnd: (details) {
-        widget.onHoldDownEnd();
         stopwatch
           ..stop()
           ..reset();
+        setState(() {
+          durationTillActionListIndex = 0;
+        });
+        widget.onHoldDownEnd();
       },
       onLongPress: () async {
         while (widget.heldDown) {
-          await Future.delayed(durationTillAction);
+          await Future.delayed(
+              durationTillActionList[durationTillActionListIndex]);
           widget.onTap();
+          final tick = stopwatch.elapsedMilliseconds / 5000;
+          if (tick.round() > durationTillActionListIndex &&
+              tick.round() < durationTillActionList.length) {
+            setState(() {
+              durationTillActionListIndex = tick.round();
+            });
+          }
+          print(durationTillActionListIndex);
         }
       },
       child: FloatingActionButton(

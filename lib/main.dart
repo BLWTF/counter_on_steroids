@@ -33,9 +33,6 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
-  final Widget goodJob = const Text('Good Job!');
-  bool heldDownPlus = false;
-  bool heldDownMinus = false;
 
   @override
   Widget build(BuildContext context) {
@@ -50,9 +47,23 @@ class _MyHomePageState extends State<MyHomePage> {
             const Text('You have pushed the button this many times: '),
             ValueListenableBuilder<int>(
               builder: (context, value, child) {
-                return Text(
-                  '$value',
-                  textScaleFactor: 2,
+                return Stack(
+                  children: [
+                    Opacity(
+                      opacity: 0,
+                      child: Transform(
+                        transform: Matrix4.identity()..scale(1.5),
+                        child: Text(
+                          '$value',
+                          textScaleFactor: 2,
+                        ),
+                      ),
+                    ),
+                    Text(
+                      '$value',
+                      textScaleFactor: 2,
+                    ),
+                  ],
                 );
               },
               valueListenable: _counter,
@@ -61,55 +72,21 @@ class _MyHomePageState extends State<MyHomePage> {
         ),
       ),
       floatingActionButton: _Actions(
-        heldDownPlus: heldDownPlus,
-        heldDownMinus: heldDownMinus,
         plus: () => _counter.value += 1,
         minus: () => _counter.value -= 1,
-        startHoldPlus: () {
-          setState(() {
-            heldDownPlus = true;
-          });
-        },
-        endHoldPlus: () {
-          setState(() {
-            heldDownPlus = false;
-          });
-        },
-        startHoldMinus: () {
-          setState(() {
-            heldDownMinus = true;
-          });
-        },
-        endHoldMinus: () {
-          setState(() {
-            heldDownMinus = false;
-          });
-        },
       ),
     );
   }
 }
 
 class _Actions extends StatefulWidget {
-  final bool heldDownPlus;
-  final bool heldDownMinus;
   final Function() plus;
-  final Function() startHoldPlus;
-  final Function() endHoldPlus;
   final Function() minus;
-  final Function() startHoldMinus;
-  final Function() endHoldMinus;
 
   const _Actions({
     Key? key,
-    required this.heldDownPlus,
-    required this.heldDownMinus,
     required this.plus,
-    required this.startHoldPlus,
-    required this.endHoldPlus,
     required this.minus,
-    required this.startHoldMinus,
-    required this.endHoldMinus,
   }) : super(key: key);
 
   @override
@@ -129,19 +106,13 @@ class __ActionsState extends State<_Actions> {
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         _ActionButton(
-          onTap: widget.minus,
-          onHoldDownStart: widget.startHoldMinus,
-          onHoldDownEnd: widget.endHoldMinus,
+          action: widget.minus,
           icon: const Icon(Icons.remove),
-          heldDown: widget.heldDownMinus,
         ),
         const SizedBox(width: 4),
         _ActionButton(
-          onTap: widget.plus,
-          onHoldDownStart: widget.startHoldPlus,
-          onHoldDownEnd: widget.endHoldPlus,
+          action: widget.plus,
           icon: const Icon(Icons.add),
-          heldDown: widget.heldDownPlus,
         ),
       ],
     );
@@ -149,18 +120,12 @@ class __ActionsState extends State<_Actions> {
 }
 
 class _ActionButton extends StatefulWidget {
-  final Function() onTap;
-  final Function() onHoldDownStart;
-  final Function() onHoldDownEnd;
-  final bool heldDown;
+  final Function() action;
   final Icon icon;
 
   const _ActionButton({
     Key? key,
-    required this.onTap,
-    required this.onHoldDownStart,
-    required this.onHoldDownEnd,
-    required this.heldDown,
+    required this.action,
     required this.icon,
   }) : super(key: key);
 
@@ -169,20 +134,21 @@ class _ActionButton extends StatefulWidget {
 }
 
 class __ActionButtonState extends State<_ActionButton> {
+  bool heldDown = false;
   Stopwatch stopwatch = Stopwatch();
   final List<Duration> durationTillActionList = const [
     Duration(milliseconds: 100),
-    Duration(milliseconds: 75),
+    // Duration(milliseconds: 75),
     Duration(milliseconds: 50),
-    Duration(milliseconds: 25),
+    // Duration(milliseconds: 25),
     Duration(milliseconds: 1),
-    Duration(milliseconds: 25),
+    // Duration(milliseconds: 25),
     Duration(milliseconds: 50),
-    Duration(milliseconds: 75),
+    // Duration(milliseconds: 75),
     Duration(microseconds: 100),
-    Duration(microseconds: 75),
+    // Duration(microseconds: 75),
     Duration(microseconds: 50),
-    Duration(microseconds: 25),
+    // Duration(microseconds: 25),
     Duration(microseconds: 1),
   ];
   int durationTillActionListIndex = 0;
@@ -191,7 +157,9 @@ class __ActionButtonState extends State<_ActionButton> {
   Widget build(BuildContext context) {
     return GestureDetector(
       onLongPressDown: (details) {
-        widget.onHoldDownStart();
+        setState(() {
+          heldDown = true;
+        });
       },
       onLongPressStart: (details) {
         stopwatch.start();
@@ -202,14 +170,14 @@ class __ActionButtonState extends State<_ActionButton> {
           ..reset();
         setState(() {
           durationTillActionListIndex = 0;
+          heldDown = false;
         });
-        widget.onHoldDownEnd();
       },
       onLongPress: () async {
-        while (widget.heldDown) {
+        while (heldDown) {
           await Future.delayed(
               durationTillActionList[durationTillActionListIndex]);
-          widget.onTap();
+          widget.action();
           final tick = stopwatch.elapsedMilliseconds / 5000;
           if (tick.round() > durationTillActionListIndex &&
               tick.round() < durationTillActionList.length) {
@@ -217,15 +185,16 @@ class __ActionButtonState extends State<_ActionButton> {
               durationTillActionListIndex = tick.round();
             });
           }
-          print(durationTillActionListIndex);
         }
       },
       child: FloatingActionButton(
-        backgroundColor: widget.heldDown ? Colors.grey : null,
+        backgroundColor: heldDown ? Colors.grey : null,
         elevation: 60,
         onPressed: () {
-          widget.onTap();
-          widget.onHoldDownEnd();
+          widget.action();
+          setState(() {
+            heldDown = false;
+          });
         },
         child: widget.icon,
       ),

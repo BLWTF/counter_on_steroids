@@ -31,8 +31,51 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
+class _MyHomePageState extends State<MyHomePage>
+    with SingleTickerProviderStateMixin {
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
+  late final AnimationController _animationController = AnimationController(
+    vsync: this,
+    duration: const Duration(
+      milliseconds: 250,
+    ),
+  );
+
+  Future<void> animateCounter() async {
+    OverlayEntry entry = OverlayEntry(
+      builder: (context) {
+        return AnimatedBuilder(
+          animation: _animationController,
+          builder: (context, child) {
+            return Positioned(
+              top: 268,
+              left: 285,
+              child: child!,
+            );
+          },
+          child: ValueListenableBuilder<int>(
+            builder: (context, value, child) {
+              return Opacity(
+                opacity: 1 - _animationController.value,
+                child: Transform.scale(
+                  scale: 1 + (_animationController.value / 2),
+                  child: Text(
+                    '$value',
+                    textScaleFactor: 2,
+                    style: Theme.of(context).textTheme.bodyText1,
+                  ),
+                ),
+              );
+            },
+            valueListenable: _counter,
+          ),
+        );
+      },
+    );
+    Overlay.of(context)!.insert(entry);
+    await _animationController.forward(from: 0);
+    entry.remove();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,23 +90,9 @@ class _MyHomePageState extends State<MyHomePage> {
             const Text('You have pushed the button this many times: '),
             ValueListenableBuilder<int>(
               builder: (context, value, child) {
-                return Stack(
-                  children: [
-                    Opacity(
-                      opacity: 0,
-                      child: Transform(
-                        transform: Matrix4.identity()..scale(1.5),
-                        child: Text(
-                          '$value',
-                          textScaleFactor: 2,
-                        ),
-                      ),
-                    ),
-                    Text(
-                      '$value',
-                      textScaleFactor: 2,
-                    ),
-                  ],
+                return Text(
+                  '$value',
+                  textScaleFactor: 2,
                 );
               },
               valueListenable: _counter,
@@ -71,50 +100,23 @@ class _MyHomePageState extends State<MyHomePage> {
           ],
         ),
       ),
-      floatingActionButton: _Actions(
-        plus: () => _counter.value += 1,
-        minus: () => _counter.value -= 1,
+      floatingActionButton: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          _ActionButton(
+            action: () => _counter.value -= 1,
+            icon: const Icon(Icons.remove),
+            onSpeedChange: () => animateCounter(),
+          ),
+          const SizedBox(width: 4),
+          _ActionButton(
+            action: () => _counter.value += 1,
+            icon: const Icon(Icons.add),
+            onSpeedChange: () => animateCounter(),
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _Actions extends StatefulWidget {
-  final Function() plus;
-  final Function() minus;
-
-  const _Actions({
-    Key? key,
-    required this.plus,
-    required this.minus,
-  }) : super(key: key);
-
-  @override
-  State<_Actions> createState() => __ActionsState();
-}
-
-class __ActionsState extends State<_Actions> {
-  @override
-  void didUpdateWidget(covariant _Actions oldWidget) {
-    super.didUpdateWidget(oldWidget);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        _ActionButton(
-          action: widget.minus,
-          icon: const Icon(Icons.remove),
-        ),
-        const SizedBox(width: 4),
-        _ActionButton(
-          action: widget.plus,
-          icon: const Icon(Icons.add),
-        ),
-      ],
     );
   }
 }
@@ -122,11 +124,13 @@ class __ActionsState extends State<_Actions> {
 class _ActionButton extends StatefulWidget {
   final Function() action;
   final Icon icon;
+  final Function() onSpeedChange;
 
   const _ActionButton({
     Key? key,
     required this.action,
     required this.icon,
+    required this.onSpeedChange,
   }) : super(key: key);
 
   @override
@@ -142,9 +146,9 @@ class __ActionButtonState extends State<_ActionButton> {
     Duration(milliseconds: 50),
     // Duration(milliseconds: 25),
     Duration(milliseconds: 1),
-    // Duration(milliseconds: 25),
-    Duration(milliseconds: 50),
-    // Duration(milliseconds: 75),
+    // Duration(microseconds: 750),
+    Duration(microseconds: 500),
+    // Duration(milliseconds: 250),
     Duration(microseconds: 100),
     // Duration(microseconds: 75),
     Duration(microseconds: 50),
@@ -184,6 +188,7 @@ class __ActionButtonState extends State<_ActionButton> {
             setState(() {
               durationTillActionListIndex = tick.round();
             });
+            widget.onSpeedChange();
           }
         }
       },

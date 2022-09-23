@@ -33,6 +33,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage>
     with SingleTickerProviderStateMixin {
+  final GlobalKey _textKey = GlobalKey();
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
   late final AnimationController _animationController = AnimationController(
     vsync: this,
@@ -42,14 +43,17 @@ class _MyHomePageState extends State<MyHomePage>
   );
 
   Future<void> animateCounter() async {
+    RenderBox box = _textKey.currentContext!.findRenderObject() as RenderBox;
+    Offset position = box.localToGlobal(Offset.zero); //this is global position
+
     OverlayEntry entry = OverlayEntry(
       builder: (context) {
         return AnimatedBuilder(
           animation: _animationController,
           builder: (context, child) {
             return Positioned(
-              top: 268,
-              left: 285,
+              top: position.dy,
+              left: position.dx,
               child: child!,
             );
           },
@@ -92,6 +96,7 @@ class _MyHomePageState extends State<MyHomePage>
               builder: (context, value, child) {
                 return Text(
                   '$value',
+                  key: _textKey,
                   textScaleFactor: 2,
                 );
               },
@@ -185,10 +190,10 @@ class __ActionButtonState extends State<_ActionButton> {
           final tick = stopwatch.elapsedMilliseconds / 5000;
           if (tick.round() > durationTillActionListIndex &&
               tick.round() < durationTillActionList.length) {
+            widget.onSpeedChange();
             setState(() {
               durationTillActionListIndex = tick.round();
             });
-            widget.onSpeedChange();
           }
         }
       },

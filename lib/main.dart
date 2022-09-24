@@ -31,8 +31,7 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class _MyHomePageState extends State<MyHomePage>
-    with SingleTickerProviderStateMixin {
+class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   final GlobalKey _textKey = GlobalKey();
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
   late final AnimationController _animationController = AnimationController(
@@ -93,7 +92,7 @@ class _MyHomePageState extends State<MyHomePage>
           children: [
             const Text('You have pushed the button this many times: '),
             ValueListenableBuilder<int>(
-              builder: (context, value, child) {
+              builder: (context, value, _) {
                 return Text(
                   '$value',
                   key: _textKey,
@@ -145,22 +144,21 @@ class _ActionButton extends StatefulWidget {
 class __ActionButtonState extends State<_ActionButton> {
   bool heldDown = false;
   Stopwatch stopwatch = Stopwatch();
-  final List<Duration> durationTillActionList = const [
-    Duration(milliseconds: 100),
-    // Duration(milliseconds: 75),
-    Duration(milliseconds: 50),
-    // Duration(milliseconds: 25),
-    Duration(milliseconds: 1),
-    // Duration(microseconds: 750),
-    Duration(microseconds: 500),
-    // Duration(milliseconds: 250),
-    Duration(microseconds: 100),
-    // Duration(microseconds: 75),
-    Duration(microseconds: 50),
-    // Duration(microseconds: 25),
-    Duration(microseconds: 1),
-  ];
-  int durationTillActionListIndex = 0;
+  late int durationTillActionMicroseconds;
+  late int elapsedTimeSinceAction;
+  late Duration durationTillAction;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTimer();
+  }
+
+  void _initTimer() {
+    durationTillActionMicroseconds = 1000000;
+    elapsedTimeSinceAction = 0;
+    durationTillAction = Duration(microseconds: durationTillActionMicroseconds);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -178,21 +176,28 @@ class __ActionButtonState extends State<_ActionButton> {
           ..stop()
           ..reset();
         setState(() {
-          durationTillActionListIndex = 0;
+          _initTimer();
           heldDown = false;
         });
       },
       onLongPress: () async {
         while (heldDown) {
-          await Future.delayed(
-              durationTillActionList[durationTillActionListIndex]);
           widget.action();
+
+          await Future.delayed(durationTillAction);
+
           final tick = stopwatch.elapsedMilliseconds / 5000;
-          if (tick.round() > durationTillActionListIndex &&
-              tick.round() < durationTillActionList.length) {
+
+          if (tick.round() > elapsedTimeSinceAction &&
+              durationTillActionMicroseconds != 1) {
             widget.onSpeedChange();
+
             setState(() {
-              durationTillActionListIndex = tick.round();
+              durationTillActionMicroseconds =
+                  (durationTillActionMicroseconds / 10).round();
+              durationTillAction =
+                  Duration(microseconds: durationTillActionMicroseconds);
+              elapsedTimeSinceAction = tick.round();
             });
           }
         }

@@ -64,8 +64,11 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                   scale: 1 + (_animationController.value / 2),
                   child: Text(
                     '$value',
-                    textScaleFactor: 2,
-                    style: Theme.of(context).textTheme.bodyText1,
+                    textScaleFactor: 3,
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyText1!
+                        .copyWith(fontWeight: FontWeight.w300),
                   ),
                 ),
               );
@@ -90,13 +93,15 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Text('You have pushed the button this many times: '),
             ValueListenableBuilder<int>(
               builder: (context, value, _) {
                 return Text(
                   '$value',
                   key: _textKey,
-                  textScaleFactor: 2,
+                  textScaleFactor: 3,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w300,
+                  ),
                 );
               },
               valueListenable: _counter,

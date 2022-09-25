@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import 'action_button.dart';
+
 void main() {
   runApp(const MyApp());
 }
@@ -34,22 +36,25 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   final GlobalKey _textKey = GlobalKey();
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
-  late final AnimationController _counterAnimationController =
-      AnimationController(
-    vsync: this,
-    duration: const Duration(
-      milliseconds: 250,
-    ),
-  );
+  late final Map<CounterAction, Function(int)> actions = {
+    CounterAction.minus: (number) => () => _counter.value -= number,
+    CounterAction.plus: (number) => () => _counter.value += number,
+  };
+  CounterAction? fixedAction;
 
   Future<void> animateCounter() async {
     RenderBox box = _textKey.currentContext!.findRenderObject() as RenderBox;
     Offset position = box.localToGlobal(Offset.zero); //this is global position
-
+    final AnimationController counterAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(
+        milliseconds: 250,
+      ),
+    );
     OverlayEntry entry = OverlayEntry(
       builder: (context) {
         return AnimatedBuilder(
-          animation: _counterAnimationController,
+          animation: counterAnimationController,
           builder: (context, child) {
             return Positioned(
               top: position.dy,
@@ -60,9 +65,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           child: ValueListenableBuilder<int>(
             builder: (context, value, child) {
               return Opacity(
-                opacity: 1 - _counterAnimationController.value,
+                opacity: 1 - counterAnimationController.value,
                 child: Transform.scale(
-                  scale: 1 + (_counterAnimationController.value / 2),
+                  scale: 1 + (counterAnimationController.value / 2),
                   child: Text(
                     '$value',
                     textScaleFactor: 3,
@@ -80,7 +85,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       },
     );
     Overlay.of(context)!.insert(entry);
-    await _counterAnimationController.forward(from: 0);
+    await counterAnimationController.forward(from: 0);
     entry.remove();
   }
 
@@ -96,21 +101,47 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           children: [
             ValueListenableBuilder<int>(
               builder: (context, value, _) {
-                return SizedBox(
-                  height: 200,
-                  width: 200,
-                  child: Center(
-                    child: RepaintBoundary(
-                      child: Text(
-                        '$value',
-                        key: _textKey,
-                        textScaleFactor: 3,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w300,
-                        ),
+                return DragTarget<CounterAction>(
+                  builder: (context, candidateData, rejectedData) => SizedBox(
+                    height: 200,
+                    width: 200,
+                    child: Center(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          RepaintBoundary(
+                            child: Text(
+                              '$value',
+                              key: _textKey,
+                              textScaleFactor: 3,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w300,
+                              ),
+                            ),
+                          ),
+                          Opacity(
+                            opacity: fixedAction != null ? 1 : 0,
+                            child: SizedBox(
+                              height: 30,
+                              width: 30,
+                              child: FloatingActionButton(
+                                backgroundColor: Colors.grey,
+                                elevation: 0,
+                                onPressed: () {},
+                                child: fixedAction?.icon,
+                              ),
+                            ),
+                          )
+                        ],
                       ),
                     ),
                   ),
+                  onAccept: (action) {
+                    setState(() {
+                      fixedAction = action;
+                    });
+                  },
                 );
               },
               valueListenable: _counter,
@@ -122,16 +153,20 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
         crossAxisAlignment: CrossAxisAlignment.end,
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          _ActionButton(
-            action: () => _counter.value -= 1,
-            icon: const Icon(Icons.remove),
+          ActionButton(
+            action: actions[CounterAction.minus]!(1),
+            actionType: CounterAction.minus,
             onSpeedChange: () => animateCounter(),
+            isInAction: fixedAction == CounterAction.minus,
+            onActionEnd: () => setState(() => fixedAction = null),
           ),
           const SizedBox(width: 4),
-          _ActionButton(
-            action: () => _counter.value += 1,
-            icon: const Icon(Icons.add),
+          ActionButton(
+            action: actions[CounterAction.plus]!(1),
+            actionType: CounterAction.plus,
             onSpeedChange: () => animateCounter(),
+            isInAction: fixedAction == CounterAction.plus,
+            onActionEnd: () => setState(() => fixedAction = null),
           ),
         ],
       ),
@@ -139,126 +174,16 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   }
 }
 
-class _ActionButton extends StatefulWidget {
-  final Function() action;
-  final Icon icon;
-  final Function() onSpeedChange;
+enum CounterAction {
+  plus,
+  minus;
 
-  const _ActionButton({
-    Key? key,
-    required this.action,
-    required this.icon,
-    required this.onSpeedChange,
-  }) : super(key: key);
-
-  @override
-  State<_ActionButton> createState() => __ActionButtonState();
-}
-
-class __ActionButtonState extends State<_ActionButton>
-    with SingleTickerProviderStateMixin {
-  bool heldDown = false;
-  Stopwatch stopwatch = Stopwatch();
-  late int durationTillActionMicroseconds;
-  late int elapsedTimeSinceAction;
-  late Duration durationTillAction;
-  late final AnimationController _progressAnimationController =
-      AnimationController(
-    vsync: this,
-    duration: const Duration(
-      seconds: 5,
-    ),
-  );
-
-  @override
-  void initState() {
-    super.initState();
-    _initTimer();
-  }
-
-  void _initTimer() {
-    durationTillActionMicroseconds = 1000000;
-    elapsedTimeSinceAction = 0;
-    durationTillAction = Duration(microseconds: durationTillActionMicroseconds);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onLongPressDown: (details) {
-        setState(() {
-          heldDown = true;
-        });
-      },
-      onLongPressStart: (details) {
-        stopwatch.start();
-        _progressAnimationController.forward(from: 0);
-      },
-      onLongPressEnd: (details) {
-        stopwatch
-          ..stop()
-          ..reset();
-
-        setState(() {
-          _initTimer();
-          heldDown = false;
-        });
-
-        _progressAnimationController.reset();
-      },
-      onLongPress: () async {
-        while (heldDown) {
-          widget.action();
-
-          await Future.delayed(durationTillAction);
-
-          final tick = stopwatch.elapsedMilliseconds / 5000;
-
-          if (tick.round() > elapsedTimeSinceAction &&
-              durationTillActionMicroseconds != 1) {
-            _progressAnimationController.reset();
-            widget.onSpeedChange();
-            _progressAnimationController.forward(from: 0);
-
-            setState(() {
-              durationTillActionMicroseconds =
-                  (durationTillActionMicroseconds / 10).round();
-              durationTillAction =
-                  Duration(microseconds: durationTillActionMicroseconds);
-              elapsedTimeSinceAction = tick.round();
-            });
-          }
-        }
-      },
-      child: Stack(
-        children: [
-          SizedBox(
-            height: 50,
-            width: 50,
-            child: AnimatedBuilder(
-              animation: _progressAnimationController,
-              builder: (context, child) => CircularProgressIndicator(
-                value: _progressAnimationController.value,
-              ),
-            ),
-          ),
-          SizedBox(
-            height: 50,
-            width: 50,
-            child: FloatingActionButton(
-              backgroundColor: heldDown ? Colors.grey : null,
-              elevation: 60,
-              onPressed: () {
-                widget.action();
-                setState(() {
-                  heldDown = false;
-                });
-              },
-              child: widget.icon,
-            ),
-          ),
-        ],
-      ),
-    );
+  Icon get icon {
+    switch (this) {
+      case CounterAction.plus:
+        return const Icon(Icons.add);
+      case CounterAction.minus:
+        return const Icon(Icons.remove);
+    }
   }
 }

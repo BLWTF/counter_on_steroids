@@ -41,13 +41,6 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       milliseconds: 250,
     ),
   );
-  late final AnimationController _progressAnimationController =
-      AnimationController(
-    vsync: this,
-    duration: const Duration(
-      seconds: 5,
-    ),
-  );
 
   Future<void> animateCounter() async {
     RenderBox box = _textKey.currentContext!.findRenderObject() as RenderBox;
@@ -103,36 +96,21 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           children: [
             ValueListenableBuilder<int>(
               builder: (context, value, _) {
-                return Stack(
-                  children: [
-                    SizedBox(
-                      height: 200,
-                      width: 200,
-                      child: AnimatedBuilder(
-                        animation: _progressAnimationController,
-                        builder: (context, child) => CircularProgressIndicator(
-                          value: _progressAnimationController.value,
-                          strokeWidth: 6,
+                return SizedBox(
+                  height: 200,
+                  width: 200,
+                  child: Center(
+                    child: RepaintBoundary(
+                      child: Text(
+                        '$value',
+                        key: _textKey,
+                        textScaleFactor: 3,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w300,
                         ),
                       ),
                     ),
-                    SizedBox(
-                      height: 200,
-                      width: 200,
-                      child: Center(
-                        child: RepaintBoundary(
-                          child: Text(
-                            '$value',
-                            key: _textKey,
-                            textScaleFactor: 3,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.w300,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
+                  ),
                 );
               },
               valueListenable: _counter,

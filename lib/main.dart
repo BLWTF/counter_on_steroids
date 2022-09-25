@@ -34,10 +34,18 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   final GlobalKey _textKey = GlobalKey();
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
-  late final AnimationController _animationController = AnimationController(
+  late final AnimationController _counterAnimationController =
+      AnimationController(
     vsync: this,
     duration: const Duration(
       milliseconds: 250,
+    ),
+  );
+  late final AnimationController _progressAnimationController =
+      AnimationController(
+    vsync: this,
+    duration: const Duration(
+      seconds: 5,
     ),
   );
 
@@ -48,7 +56,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     OverlayEntry entry = OverlayEntry(
       builder: (context) {
         return AnimatedBuilder(
-          animation: _animationController,
+          animation: _counterAnimationController,
           builder: (context, child) {
             return Positioned(
               top: position.dy,
@@ -59,9 +67,9 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           child: ValueListenableBuilder<int>(
             builder: (context, value, child) {
               return Opacity(
-                opacity: 1 - _animationController.value,
+                opacity: 1 - _counterAnimationController.value,
                 child: Transform.scale(
-                  scale: 1 + (_animationController.value / 2),
+                  scale: 1 + (_counterAnimationController.value / 2),
                   child: Text(
                     '$value',
                     textScaleFactor: 3,
@@ -79,7 +87,7 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
       },
     );
     Overlay.of(context)!.insert(entry);
-    await _animationController.forward(from: 0);
+    await _counterAnimationController.forward(from: 0);
     entry.remove();
   }
 
@@ -95,13 +103,36 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
           children: [
             ValueListenableBuilder<int>(
               builder: (context, value, _) {
-                return Text(
-                  '$value',
-                  key: _textKey,
-                  textScaleFactor: 3,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w300,
-                  ),
+                return Stack(
+                  children: [
+                    SizedBox(
+                      height: 200,
+                      width: 200,
+                      child: AnimatedBuilder(
+                        animation: _progressAnimationController,
+                        builder: (context, child) => CircularProgressIndicator(
+                          value: _progressAnimationController.value,
+                          strokeWidth: 6,
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      height: 200,
+                      width: 200,
+                      child: Center(
+                        child: RepaintBoundary(
+                          child: Text(
+                            '$value',
+                            key: _textKey,
+                            textScaleFactor: 3,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w300,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 );
               },
               valueListenable: _counter,
@@ -146,12 +177,20 @@ class _ActionButton extends StatefulWidget {
   State<_ActionButton> createState() => __ActionButtonState();
 }
 
-class __ActionButtonState extends State<_ActionButton> {
+class __ActionButtonState extends State<_ActionButton>
+    with SingleTickerProviderStateMixin {
   bool heldDown = false;
   Stopwatch stopwatch = Stopwatch();
   late int durationTillActionMicroseconds;
   late int elapsedTimeSinceAction;
   late Duration durationTillAction;
+  late final AnimationController _progressAnimationController =
+      AnimationController(
+    vsync: this,
+    duration: const Duration(
+      seconds: 5,
+    ),
+  );
 
   @override
   void initState() {
@@ -175,15 +214,19 @@ class __ActionButtonState extends State<_ActionButton> {
       },
       onLongPressStart: (details) {
         stopwatch.start();
+        _progressAnimationController.forward(from: 0);
       },
       onLongPressEnd: (details) {
         stopwatch
           ..stop()
           ..reset();
+
         setState(() {
           _initTimer();
           heldDown = false;
         });
+
+        _progressAnimationController.reset();
       },
       onLongPress: () async {
         while (heldDown) {
@@ -195,7 +238,9 @@ class __ActionButtonState extends State<_ActionButton> {
 
           if (tick.round() > elapsedTimeSinceAction &&
               durationTillActionMicroseconds != 1) {
+            _progressAnimationController.reset();
             widget.onSpeedChange();
+            _progressAnimationController.forward(from: 0);
 
             setState(() {
               durationTillActionMicroseconds =
@@ -207,16 +252,34 @@ class __ActionButtonState extends State<_ActionButton> {
           }
         }
       },
-      child: FloatingActionButton(
-        backgroundColor: heldDown ? Colors.grey : null,
-        elevation: 60,
-        onPressed: () {
-          widget.action();
-          setState(() {
-            heldDown = false;
-          });
-        },
-        child: widget.icon,
+      child: Stack(
+        children: [
+          SizedBox(
+            height: 50,
+            width: 50,
+            child: AnimatedBuilder(
+              animation: _progressAnimationController,
+              builder: (context, child) => CircularProgressIndicator(
+                value: _progressAnimationController.value,
+              ),
+            ),
+          ),
+          SizedBox(
+            height: 50,
+            width: 50,
+            child: FloatingActionButton(
+              backgroundColor: heldDown ? Colors.grey : null,
+              elevation: 60,
+              onPressed: () {
+                widget.action();
+                setState(() {
+                  heldDown = false;
+                });
+              },
+              child: widget.icon,
+            ),
+          ),
+        ],
       ),
     );
   }

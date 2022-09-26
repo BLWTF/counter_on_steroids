@@ -52,6 +52,12 @@ class _ActionButtonState extends State<ActionButton>
     }
   }
 
+  @override
+  void dispose() {
+    _progressAnimationController.dispose();
+    super.dispose();
+  }
+
   void _initTimer() {
     durationTillActionMicroseconds = 1000000;
     elapsedTimeSinceAction = 0;

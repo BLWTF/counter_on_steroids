@@ -11,7 +11,6 @@ void main() {
 class MyApp extends StatelessWidget {
   const MyApp({Key? key}) : super(key: key);
 
-  // This widget is the root of your application.
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -35,6 +34,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
   final GlobalKey _textKey = GlobalKey();
+  final GlobalKey _fixedActionKey = GlobalKey();
   final ValueNotifier<int> _counter = ValueNotifier<int>(0);
   late final Map<CounterAction, Function(int)> actions = {
     CounterAction.minus: (number) => () => _counter.value -= number,
@@ -87,6 +87,51 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
     Overlay.of(context)!.insert(entry);
     await counterAnimationController.forward(from: 0);
     entry.remove();
+    counterAnimationController.dispose();
+  }
+
+  Future<void> animateFixedAction(Offset startOffset) async {
+    RenderBox box =
+        _fixedActionKey.currentContext!.findRenderObject() as RenderBox;
+    Offset position = box.localToGlobal(Offset.zero);
+    final AnimationController controller = AnimationController(
+      vsync: this,
+      duration: const Duration(
+        milliseconds: 150,
+      ),
+    );
+    final animation = Tween<Offset>(
+      begin: startOffset,
+      end: position,
+    ).animate(controller);
+
+    OverlayEntry entry = OverlayEntry(
+      builder: (context) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (context, child) {
+            return Positioned(
+              top: animation.value.dy,
+              left: animation.value.dx,
+              child: SizedBox(
+                height: 30,
+                width: 30,
+                child: FloatingActionButton(
+                  backgroundColor: Colors.grey,
+                  elevation: 0,
+                  onPressed: null,
+                  child: fixedAction?.icon,
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+    Overlay.of(context)!.insert(entry);
+    await controller.forward(from: 0);
+    entry.remove();
+    controller.dispose();
   }
 
   @override
@@ -126,9 +171,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                               height: 30,
                               width: 30,
                               child: FloatingActionButton(
+                                key: _fixedActionKey,
                                 backgroundColor: Colors.grey,
                                 elevation: 0,
-                                onPressed: () {},
+                                onPressed: null,
                                 child: fixedAction?.icon,
                               ),
                             ),
@@ -137,9 +183,10 @@ class _MyHomePageState extends State<MyHomePage> with TickerProviderStateMixin {
                       ),
                     ),
                   ),
-                  onAccept: (action) {
+                  onAcceptWithDetails: (details) async {
+                    await animateFixedAction(details.offset);
                     setState(() {
-                      fixedAction = action;
+                      fixedAction = details.data;
                     });
                   },
                 );

@@ -133,16 +133,6 @@ class _ActionButtonState extends State<ActionButton>
             height: 50,
             width: 50,
             child: Draggable<CounterAction>(
-              onDragStarted: () {
-                setState(() {
-                  isInAction = true;
-                });
-              },
-              onDragEnd: (_) {
-                setState(() {
-                  isInAction = false;
-                });
-              },
               onDragCompleted: () async {
                 setState(() {
                   isInAction = true;
@@ -159,6 +149,20 @@ class _ActionButtonState extends State<ActionButton>
                   onPressed: () {},
                   child: widget.actionType.icon,
                 ),
+              ),
+              childWhenDragging: FloatingActionButton(
+                backgroundColor: Colors.grey,
+                elevation: 10,
+                onPressed: () {
+                  widget.action();
+                  if (isInAction) {
+                    widget.onActionEnd();
+                    setState(() {
+                      isInAction = false;
+                    });
+                  }
+                },
+                child: widget.actionType.icon,
               ),
               child: FloatingActionButton(
                 backgroundColor: isInAction ? Colors.grey : null,
